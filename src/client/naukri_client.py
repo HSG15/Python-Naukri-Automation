@@ -145,6 +145,10 @@ class NaukriLoginClient:
                     for msg in mailbox.fetch(limit=15, reverse=True):
                         sender = msg.from_.lower()
                         if 'naukri' in sender or 'infoedge' in sender:
+                            import time
+                            if time.time() - msg.date.timestamp() > 120:
+                                continue # Skip emails older than 2 minutes
+                                
                             html_clean = re.sub(r'<[^>]+>', ' ', msg.html or "")
                             text = (msg.subject or "") + " " + (msg.text or "") + " " + html_clean
                             matches = re.findall(r'\b\d{6}\b', text)
