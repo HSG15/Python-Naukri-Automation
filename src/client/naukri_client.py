@@ -132,34 +132,47 @@ class NaukriLoginClient:
             json={"username": self.username, "password": self.password},
         )
 
-    def _fetch_otp_from_gmail(self, app_password, max_retries=6):
+    def _fetch_otp_from_gmail(self, app_password, max_retries=8):
         """Fetch 6-digit OTP from recent Naukri emails via IMAP."""
         from imap_tools import MailBox
         import re
-        
+        import time
+
         logger.info("Connecting to Gmail IMAP to retrieve OTP...")
         for attempt in range(max_retries):
             try:
                 with MailBox('imap.gmail.com').login(self.username, app_password) as mailbox:
                     mailbox.folder.set('[Gmail]/All Mail')
-                    for msg in mailbox.fetch(limit=15, reverse=True):
+                    found_any_naukri = False
+                    for msg in mailbox.fetch(limit=20, reverse=True):
                         sender = msg.from_.lower()
                         if 'naukri' in sender or 'infoedge' in sender:
-                            import time
-                            if time.time() - msg.date.timestamp() > 120:
-                                continue # Skip emails older than 2 minutes
-                                
+                            found_any_naukri = True
+                            age_seconds = time.time() - msg.date.timestamp()
+                            logger.info(
+                                "Found Naukri email: '%s' | Age: %.0fs | Sender: %s",
+                                msg.subject, age_seconds, msg.from_
+                            )
+                            if age_seconds > 300:  # Skip emails older than 5 minutes
+                                logger.info("Skipping — too old (>5 min)")
+                                continue
+
                             html_clean = re.sub(r'<[^>]+>', ' ', msg.html or "")
                             text = (msg.subject or "") + " " + (msg.text or "") + " " + html_clean
                             matches = re.findall(r'\b\d{6}\b', text)
+                            logger.info("OTP candidates found: %s", matches)
                             if matches:
                                 return matches[0]
+
+                    if not found_any_naukri:
+                        logger.info("No Naukri emails found in All Mail (attempt %d/%d)", attempt + 1, max_retries)
+
             except Exception as e:
                 logger.warning("IMAP fetch error: %s", e)
-            
+
             if attempt < max_retries - 1:
-                logger.info("OTP not found yet. Waiting 10 seconds before retrying...")
-                time.sleep(10)
+                logger.info("OTP not found yet. Waiting 15 seconds before retrying...")
+                time.sleep(15)
         return None
 
     def login(self):
