@@ -2,6 +2,7 @@ import logging
 import random
 import time
 import functools
+import os
 from io import BytesIO
 from src.client.session import build_session
 from src.config.constants import *
@@ -131,10 +132,56 @@ class NaukriLoginClient:
             json={"username": self.username, "password": self.password},
         )
 
+    def _fetch_otp_from_gmail(self, app_password, max_retries=6):
+        """Fetch 6-digit OTP from recent Naukri emails via IMAP."""
+        from imap_tools import MailBox
+        import re
+        
+        logger.info("Connecting to Gmail IMAP to retrieve OTP...")
+        for attempt in range(max_retries):
+            try:
+                with MailBox('imap.gmail.com').login(self.username, app_password) as mailbox:
+                    for msg in mailbox.fetch(limit=15, reverse=True):
+                        sender = msg.from_.lower()
+                        if 'naukri' in sender or 'infoedge' in sender:
+                            text = (msg.subject or "") + " " + (msg.text or "") + " " + (msg.html or "")
+                            matches = re.findall(r'\b\d{6}\b', text)
+                            if matches:
+                                return matches[0]
+            except Exception as e:
+                logger.warning("IMAP fetch error: %s", e)
+            
+            if attempt < max_retries - 1:
+                logger.info("OTP not found yet. Waiting 10 seconds before retrying...")
+                time.sleep(10)
+        return None
+
     def login(self):
         res = self._login_request()
 
         if not res.ok:
+            try:
+                err_data = res.json()
+            except Exception:
+                err_data = {}
+            
+            if err_data.get("message") == "MFA required" or b"MFA required" in res.content:
+                logger.info("MFA required detected by Naukri.")
+                app_password = os.getenv("GMAIL_APP_PASSWORD")
+                if not app_password:
+                    raise NaukriAuthError("Login failed: MFA required, but GMAIL_APP_PASSWORD is not set in environment.")
+                
+                logger.info("Waiting 10 seconds for email to arrive...")
+                time.sleep(10)
+                
+                otp = self._fetch_otp_from_gmail(app_password)
+                if not otp:
+                    raise NaukriAuthError("Login failed: Could not retrieve OTP from Gmail within the timeout.")
+                
+                logger.info("Successfully retrieved OTP: %s", otp)
+                is_mobile = err_data.get("data", {}).get("medium") == "sms"
+                return self.verify_otp(otp, is_mobile=is_mobile)
+
             print(res.content)
             raise NaukriAuthError("Login failed")
 

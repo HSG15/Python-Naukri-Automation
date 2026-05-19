@@ -6,3 +6,4 @@ selenium
 pycryptodome 
 colorama
 schedule
+imap-tools
