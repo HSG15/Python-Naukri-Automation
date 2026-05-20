@@ -198,7 +198,7 @@ class NaukriLoginClient:
                     raise NaukriAuthError("Login failed: Could not retrieve OTP from Gmail within the timeout.")
 
                 logger.info("Successfully retrieved OTP: %s", otp)
-                is_mobile = err_data.get("data", {}).get("medium") == "sms"
+                is_mobile = (err_data.get("data") or {}).get("medium") == "sms"
                 return self.verify_otp(otp, is_mobile=is_mobile)
 
             # Check for OTP quota exhaustion — too many OTPs sent today
@@ -243,9 +243,13 @@ class NaukriLoginClient:
             "isLoginByEmail": not is_mobile,
             "isLoginByMobile": is_mobile,
         }
+        # Use headers consistent with the login request to avoid user-agent/appid mismatch
+        headers = self._build_headers(extra={
+            "referer": "https://www.naukri.com/nlogin/login?URL=//www.naukri.com/mnjuser/recommendedjobs"
+        })
         return self.session.post(
             OTP_VERIFY_URL,
-            headers=OTP_HEADERS,
+            headers=headers,
             json=payload,
         )
 
@@ -302,11 +306,10 @@ class NaukriLoginClient:
             "isLoginByEmail": not is_mobile,
             "isLoginByMobile": is_mobile,
         }
-        otp_header=self._build_headers()
-        otp_header["appid"]="100"
+        headers = self._build_headers()
         return self.session.post(
             OTP_SEND_URL,
-            headers=otp_header,
+            headers=headers,
             json=payload,
         )
 
