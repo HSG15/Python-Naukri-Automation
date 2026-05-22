@@ -1,4 +1,3 @@
-
 from src.client.naukri_client import NaukriLoginClient
 from src.client.job_client import NaukriJobClient
 from dotenv import load_dotenv

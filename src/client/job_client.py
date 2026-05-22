@@ -367,18 +367,21 @@ class NaukriJobClient:
         source="recommended",
     ) -> dict:
 
+        import os
         # Static profile values used when generating questionnaire answers.
-        # Update these to match the candidate's actual profile.
+        # Update these in your .env file to match your details.
         PROFILE = {
-            "current_ctc":  "5",
-            "expected_ctc": "7",
-            "exp_total":    "2",
-            "exp_node":     "2",
-            "exp_python":   "1",
-            "notice_days":  30,
+            "current_ctc":  os.getenv("PROFILE_CURRENT_CTC", "6"),
+            "expected_ctc": os.getenv("PROFILE_EXPECTED_CTC", "10"),
+            "exp_total":    os.getenv("PROFILE_EXP_TOTAL", "2"),
+            "exp_node":     os.getenv("PROFILE_EXP_NODE", "0"),
+            "exp_python":   os.getenv("PROFILE_EXP_PYTHON", "2"),
+            "notice_days":  int(os.getenv("PROFILE_NOTICE_DAYS", "30")),
             "skills": [
-                "node", "docker", "kubernetes",
-                "aws", "ci/cd", "jenkins", "terraform",
+                s.strip().lower() for s in os.getenv(
+                    "PROFILE_SKILLS",
+                    "python,sql,pyspark,spark,databricks,adf,synapse,etl,aws,delta lake"
+                ).split(",") if s.strip()
             ],
         }
 

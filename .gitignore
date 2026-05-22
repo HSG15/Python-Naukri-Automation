@@ -31,3 +31,9 @@ dist/
 # Coverage (optional)
 .coverage
 htmlcov/
+
+# Local state files
+apply_count_today.json
+
+# Build and deployment zips
+*.zip
