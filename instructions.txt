@@ -1,0 +1,51 @@
+====================================================================
+NAUKRI AUTO-PILOT AUTOMATION GUIDE
+====================================================================
+
+--- HOW THE AUTOMATION WORKS (IN SIMPLE WORDS) ---
+1. Login: The script logs into your Naukri.com account securely using the credentials stored in your local `.env` file.
+2. Profile Refresh (Full Run only): It downloads your resume, uploads it again to refresh Naukri's "last updated" timestamp, and updates your profile headline slightly (e.g., adding or removing a trailing space/pipe depending on the time of day). This keeps your profile fresh and highly visible to recruiters.
+3. Smart Job Application: It searches for jobs using a prioritized tiered structure:
+   - Tier 1 (Data Engineer / Associate Data Engineer)
+   - Tier 2 (Data Analyst / Backend Python/Node Engineer)
+   - Tier 3 (Full Stack Developer)
+   It searches Tier 1 first, and only moves to Tier 2/3 if it runs out of matches.
+4. Session & Daily Caps: It reads and writes to `apply_count_today.json` to keep track of how many jobs have been applied to today, ensuring you never exceed your configured daily cap (default: 20 applications/day) or session cap (default: 5 applications/run). This mimics organic human activity and respects Naukri limits.
+
+--- HOW TO RUN IT MANUALLY IN YOUR TERMINAL ---
+1. Navigate to the project directory:
+   cd "/Users/harishankargiri/MyProject/Vibe Coding/Naukri-UpdateResume"
+
+2. Activate the python virtual environment (optional but recommended for manual runs):
+   source venv/bin/activate
+
+3. Run a Full Cycle (Resume Refresh + Headline Update + Job Apply):
+   python daily_upload.py --now
+   (Or without activating venv: venv/bin/python daily_upload.py --now)
+
+4. Run an Apply-Only Cycle (Job Apply only):
+   python daily_upload.py --apply-only
+   (Or without activating venv: venv/bin/python daily_upload.py --apply-only)
+
+5. Trigger via macOS Launchd Agent (run background jobs instantly):
+   - Trigger Full Cycle:    launchctl start com.harishankargiri.naukri-uploader
+   - Trigger Apply-Only:   launchctl start com.harishankargiri.naukri-applier
+
+--- HOW TO SEE SCHEDULED JOBS ON YOUR MAC ---
+On macOS, background tasks are scheduled using Launchd (managed via plist agents) rather than the older standard Unix 'cron'.
+
+1. List active Naukri launchd jobs:
+   launchctl list | grep naukri
+
+2. Inspect the configuration (plist) files defining the schedules:
+   cat ~/Library/LaunchAgents/com.harishankargiri.naukri-uploader.plist
+   cat ~/Library/LaunchAgents/com.harishankargiri.naukri-applier.plist
+
+3. Print the standard user crontab (in case any old-school cron jobs are scheduled):
+   crontab -l
+
+4. View schedule runtime logs:
+   - Combined Logs:  tail -f daily_upload.log
+   - Standard Out:   tail -f daily_upload_stdout.log
+   - Standard Error:  tail -f daily_upload_stderr.log
+====================================================================
