@@ -6,7 +6,7 @@ from src.client.naukri_client import NaukriLoginClient
 from src.exceptions.exceptions import NaukriAuthError, NaukriParseError
 from src.utils.request_helper import with_exponential_retry
 from src.utils.nkparam_generator import generate_nkparam
-from src.config.constants import RECOMMENDED_JOBS_URL, JOB_SEARCH_URL, APPLY_JOB_URL
+from src.config.constants import RECOMMENDED_JOBS_URL, JOB_SEARCH_URL, APPLY_JOB_URL, EARLY_ACCESS_JOBS_URL, MARK_INTERESTED_URL
 import json
 
 
@@ -20,8 +20,9 @@ logger.addHandler(_handler)
 
 
 APPLY_SRC_MAP = {
-    "recommended": ("drecomm_apply", "--drecomm_apply-1-F-0-1--{sid}-"),
-    "search":      ("srp",           "--srp-1-F-0-1--{sid}-"),
+    "recommended":   ("drecomm_apply", "--drecomm_apply-1-F-0-1--{sid}-"),
+    "search":        ("srp",           "--srp-1-F-0-1--{sid}-"),
+    "early_access":  ("s2jlisting",    "d3skt0p-s2jlisting-0-F-0-1---"),
 }
 
 
@@ -137,7 +138,11 @@ class NaukriJobClient:
             experience=raw.get("experienceText") or raw.get("experience") or "N/A",
             salary=raw.get("salaryDetail") or raw.get("salary") or "Not disclosed",
             posted_date=raw.get("footerPlaceholderLabel") or raw.get("postedDate") or "N/A",
-            apply_link=raw.get("jdURL") or f"https://www.naukri.com/job-listings-{raw.get('jobId', '')}",
+            apply_link=(
+                f"https://www.naukri.com{raw.get('jdURL')}"
+                if raw.get("jdURL") and raw.get("jdURL").startswith("/")
+                else (raw.get("jdURL") or f"https://www.naukri.com/job-listings-{raw.get('jobId', '')}")
+            ),
             description=raw.get("jobDescription") or "",
             tags=(
                 [t.strip() for t in raw.get("tagsAndSkills", "").split(",")]
@@ -511,8 +516,52 @@ class NaukriJobClient:
 
         data = res.json()
         raw_jobs = data.get("jobDetails") or []
-        print(raw_jobs[:5])
         return [self._parse_job(j) for j in raw_jobs]
+
+    # ----------------------------------------------------------------------------------
+    # Early access jobs ("Share Interest" / pseudojobs)
+    # ----------------------------------------------------------------------------------
+
+    def get_early_access_jobs(self) -> list[Job]:
+        """Fetch early access roles from Naukri's pseudojobs endpoint."""
+        headers = self._client._build_headers(auth=True)
+        headers.update({
+            "Content-Type": "application/json",
+            "Accept":       "application/json",
+            "systemid":     "Naukri",
+            "appid":        "121",
+            "clientid":     "d3skt0p",
+        })
+        res = self._session.get(EARLY_ACCESS_JOBS_URL, headers=headers)
+        if not res.ok:
+            raise NaukriParseError(f"Early access jobs fetch failed: {res.status_code}")
+        data     = res.json()
+        raw_jobs = data.get("jobDetails") or []
+        logger.info("Early access jobs available: %d", data.get("noOfJobs", len(raw_jobs)))
+        return [self._parse_job(j) for j in raw_jobs]
+
+    def mark_early_access_interest(self, job_id: str) -> bool:
+        """Click 'Share Interest' for an early-access job. Returns True on success."""
+        headers = self._client._build_headers(auth=True)
+        headers.update({
+            "Content-Type": "application/json",
+            "Accept":       "application/json",
+            "systemid":     "Naukri",
+            "appid":        "121",
+            "clientid":     "d3skt0p",
+        })
+        res = self._session.post(
+            MARK_INTERESTED_URL,
+            headers=headers,
+            json={"jobId": job_id},
+        )
+        # Naukri returns HTTP 204 No Content on success
+        if res.status_code == 204:
+            logger.info("  → ✅ Shared interest successfully for job %s", job_id)
+            return True
+        logger.warning("  → Share interest failed for job %s: HTTP %d %s",
+                       job_id, res.status_code, res.text[:200])
+        return False
 
     # ----------------------------------------------------------------------------------
     # Search jobs

@@ -17,6 +17,8 @@ JOB_SEARCH_URL = "https://www.naukri.com/jobapi/v3/search"
 RECOMMENDED_JOBS_URL = "https://www.naukri.com/jobapi/v2/search/recom-jobs"
 APPLY_JOB_URL = "https://www.naukri.com/cloudgateway-workflow/workflow-services/apply-workflow/v1/apply"
 HISTORY_URL = "https://www.naukri.com/cloudgateway-apply/whtma-services/v0/applyapi/v5/history"
+EARLY_ACCESS_JOBS_URL = "https://www.naukri.com/jobapi/v1/search/pseudojobs"
+MARK_INTERESTED_URL = "https://www.naukri.com/cloudgateway-mynaukri/resman-aggregator-services/v0/inbox/users/self/markInterested"
 
 
  #===================================================================================================================================

@@ -4,11 +4,10 @@
 
 1. **Automatic Login**: The script logs into your Naukri.com account securely using the credentials stored in your local `.env` file.
 2. **Profile Refresh (Full Run Only)**: It downloads your resume, uploads it again to refresh Naukri's "last updated" timestamp, and updates your profile headline slightly (e.g., adding or removing a trailing space/pipe depending on the time of day). This keeps your profile fresh and highly visible to recruiters.
-3. **Smart Job Application**: It searches for jobs using a prioritized tiered structure:
-   - **Tier 1**: Data Engineer / Associate Data Engineer
-   - **Tier 2**: Data Analyst / Backend Python/Node Engineer
-   - **Tier 3**: Full Stack Developer
-   It searches Tier 1 first, and only moves to Tier 2/3 if it runs out of matches.
+3. **Smart Job Application & Relevance Filtering**: It searches for jobs using a single consolidated list of Data Engineering target keywords defined in `.env` under `JOB_KEYWORDS`.
+   - Before applying to any job (both via keyword search and early-access/recommended roles), the bot runs it through a **strict relevance filter** that checks the job title, tags, and description.
+   - It automatically blacklists and skips irrelevant roles (e.g., Coding Teacher, Drone Embedded, Gen AI Video Creator, Spring Boot Developer, Frontend Developer, Internships).
+   - For generic roles (like Software Engineer or Python Developer), it validates that they explicitly list core Data Engineering skills (like PySpark, Databricks, ETL, ADF, Synapse) in their tags or description before applying.
 4. **Session & Daily Caps**: It reads and writes to `apply_count_today.json` to keep track of how many jobs have been applied to today, ensuring you never exceed your configured daily cap (default: `20` applications/day) or session cap (default: `5` applications/run). This mimics organic human activity and respects Naukri limits.
 
 ---

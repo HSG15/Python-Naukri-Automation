@@ -34,6 +34,11 @@ htmlcov/
 
 # Local state files
 apply_count_today.json
+applied_jobs_history.json
+headline_state.json
+recommended_seen_jobs.json
+run_history.json
+*.html
 
 # Build and deployment zips
 *.zip
