@@ -86,10 +86,8 @@ SCHEDULED_SLOTS = [
 # Rotating headline variants — cycles on every full run so Naukri's algorithm
 # sees a "fresh" profile each time. Each variant leads with a different core skill.
 HEADLINE_VARIANTS = [
-    "Data Engineer | ~2 YOE | Immediate Joiner | Python | PySpark | Apache Spark | Azure Databricks | ADF | Azure Synapse | ETL/ELT | Delta Lake | AWS | SQL",
-    "PySpark Developer | ~2 YOE | Data Engineer | Immediate Joiner | Azure Databricks | ADF | Synapse | Delta Lake | ETL/ELT | Python | SQL | AWS",
-    "Azure Data Engineer | ~2 YOE | Immediate Joiner | PySpark | Spark | Databricks | ADF | Synapse | Delta Lake | SQL | Python | AWS | ETL/ELT",
-    "ETL Developer | ~2 YOE | Data Engineer | Immediate Joiner | PySpark | Apache Spark | Databricks | ADF | Synapse | Delta Lake | SQL | Python | AWS",
+    "Data Engineer | Azure Data Engineer | Immediate Joiner | 2 YOE | Python | SQL | PySpark | Apache Spark | Azure Databricks | Azure Data Factory | Azure Synapse | Delta Lake | ETL | ELT | PostgreSQL | Airflow | AWS | Immediate Joiner",
+    "Data Engineer | Azure Data Engineer | Immediate Joiner | 2 YOE | Python | SQL | PySpark | Apache Spark | Azure Databricks | Azure Data Factory | Azure Synapse | Delta Lake | ETL | ELT | PostgreSQL | Airflow | AWS | Immediate Joiner "
 ]
 
 # ── search keywords ──────────────────────────────────────────────
@@ -230,20 +228,33 @@ def get_next_headline() -> str:
 # Internet check
 # ═══════════════════════════════════════════════════════════════════
 
-def wait_for_internet(timeout: int = 900, delay: int = 10) -> bool:
-    """Waits for active internet connection (useful after waking from sleep)."""
+def wait_for_internet(timeout: int = 300, delay: int = 10) -> bool:
+    """Waits for active internet connection (useful after waking from sleep).
+
+    Default timeout is 5 minutes (300s). Scheduled runs use this short timeout
+    so they fail fast and release the process lock quickly. The catch-up watcher
+    is the recovery mechanism — it fires on network change and re-runs missed slots.
+    """
     log.info("Checking internet connection...")
     start = time.time()
     while time.time() - start < timeout:
         try:
             r = requests.get("https://www.google.com", timeout=5)
             if r.status_code == 200:
-                log.info("Internet connection is active.")
+                log.info("Internet connection is active. Waiting 5s for network to stabilize...")
+                time.sleep(5)
                 return True
         except requests.RequestException:
             pass
-        log.warning("No internet yet. Retrying in %ds...", delay)
+        elapsed = int(time.time() - start)
+        remaining = int(timeout - elapsed)
+        log.warning("No internet yet. Retrying in %ds... (%ds remaining before abort)", delay, remaining)
         time.sleep(delay)
+    log.error(
+        "No internet after %ds. Aborting this run. "
+        "Catch-up watcher will re-run this slot when you come online.",
+        timeout,
+    )
     return False
 
 
@@ -257,29 +268,42 @@ def dated_filename() -> str:
 
 
 def download_from_gdrive(file_id: str) -> bytes:
-    """Downloads a file from Google Drive (handles virus-scan confirm redirect)."""
+    """Downloads a file from Google Drive (handles virus-scan confirm redirect) with retries."""
     session = requests.Session()
-
     url  = f"https://drive.google.com/uc?export=download&id={file_id}"
-    resp = session.get(url, timeout=30)
-    resp.raise_for_status()
-
-    if b"virus scan warning" in resp.content.lower() or b"confirm" in resp.content[:500].lower():
-        import re
-        token_match = re.search(rb'confirm=([0-9A-Za-z_\-]+)', resp.content)
-        if token_match:
-            token = token_match.group(1).decode()
-            resp  = session.get(f"{url}&confirm={token}", timeout=30)
+    
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = session.get(url, timeout=30)
             resp.raise_for_status()
 
-    if resp.content[:4] != b"%PDF":
-        raise ValueError(
-            "Downloaded content is not a valid PDF. "
-            "Check GDRIVE_FILE_ID and ensure the file is publicly shared."
-        )
+            if b"virus scan warning" in resp.content.lower() or b"confirm" in resp.content[:500].lower():
+                import re
+                token_match = re.search(rb'confirm=([0-9A-Za-z_\-]+)', resp.content)
+                if token_match:
+                    token = token_match.group(1).decode()
+                    resp  = session.get(f"{url}&confirm={token}", timeout=30)
+                    resp.raise_for_status()
 
-    log.info("Downloaded %.1f KB from GDrive", len(resp.content) / 1024)
-    return resp.content
+            if resp.content[:4] != b"%PDF":
+                raise ValueError(
+                    "Downloaded content is not a valid PDF. "
+                    "Check GDRIVE_FILE_ID and ensure the file is publicly shared."
+                )
+
+            log.info("Downloaded %.1f KB from GDrive", len(resp.content) / 1024)
+            return resp.content
+
+        except (requests.RequestException, ValueError) as exc:
+            if attempt == max_retries:
+                log.error("GDrive download failed permanently after %d attempts.", max_retries)
+                raise exc
+            delay = attempt * 5
+            log.warning("GDrive download attempt %d/%d failed: %s. Retrying in %ds...", 
+                        attempt, max_retries, exc, delay)
+            time.sleep(delay)
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -312,59 +336,82 @@ def save_recommended_seen_id(job_id: str) -> None:
 def is_job_relevant(job) -> tuple[bool, str]:
     title_lower = job.title.lower()
 
-    # 1. Blacklist check
+    # 1. Blacklist check — roles clearly outside Data Engineering scope
     blacklist_words = [
+        # Teaching / Training
         "teacher", "trainer", "tutor", "instructor", "teaching", "faculty", "professor",
+        # Non-tech
         "content", "creator", "writer", "marketing", "sales", "growth", "seo", "media",
+        "credit", "risk", "finance", "accounting", "audit", "compliance",
+        # Hardware / Embedded
         "embedded", "firmware", "hardware", "iot", "drone", "vlsi", "semiconductor",
-        "react", "angular", "vue", "frontend", "front end", "front-end", "android", "ios", "mobile", "flutter", "kotlin", "swift",
+        # Frontend / Mobile / Web
+        "react", "angular", "vue", "frontend", "front end", "front-end",
+        "android", "ios", "mobile", "flutter", "kotlin", "swift",
         "springboot", "spring boot", "laravel", "wordpress", "django", "flask",
+        "backend", "back end", "back-end", "node", "nodejs", "node.js",
+        # Design
         "ui", "ux", "designer", "graphic", "3d", "animation", "video",
+        # Entry restricted
         "intern", "internship",
-        "support", "helpdesk", "help desk", "customer", "operations", "admin", "administrator", "l1", "l2",
-        "recruiter", "hr", "talent acquisition", "fullstack", "full stack"
+        # Ops / Support / HR
+        "support", "helpdesk", "help desk", "customer", "l1", "l2",
+        "recruiter", "hr", "talent acquisition",
+        "fullstack", "full stack",
+        # Off-target tech roles
+        "quality assurance", "qa engineer", "test engineer", "tester", "testing",
+        "network engineer", "network administrator", "system administrator",
+        "devops", "sre", "site reliability",
+        "cybersecurity", "security engineer", "penetration",
     ]
 
     for word in blacklist_words:
         if word in title_lower:
             return False, f"Blacklisted word '{word}' found in title."
 
-    # Special check for Java or Dotnet / .NET (only allow if Data/Spark is also present)
+    # 2. Seniority guard — skip roles that require significantly more experience
+    seniority_blacklist = [
+        "senior", "sr.", "lead", "principal", "architect", "head of", "director",
+        "vp ", "vice president", "manager", "chief", "staff engineer",
+    ]
+    for word in seniority_blacklist:
+        if word in title_lower:
+            return False, f"Seniority level '{word}' exceeds target experience (~1-2 YOE)."
+
+    # 3. Special check for Java or Dotnet / .NET (only allow if Data/Spark is also present)
     if "java" in title_lower or "dotnet" in title_lower or ".net" in title_lower:
         if not any(x in title_lower for x in ["data", "spark", "etl", "warehouse"]):
             return False, "Title contains Java/Dotnet but does not contain data engineering keywords."
 
-    # 2. Core Data Engineering keywords check
+    # 4. Core Data Engineering title check (whitelist)
     core_de_keywords = [
-        "data engineer", "pyspark", "databricks", "etl", "spark", "azure data", "aws data",
-        "data warehouse", "dwh", "data pipeline", "big data", "database engineer", "synapse", "adf"
+        "data engineer", "pyspark developer", "databricks developer",
+        "etl developer", "spark developer",
+        "azure data engineer", "aws data engineer",
+        "data warehouse engineer", "dwh engineer",
+        "data pipeline engineer", "big data engineer",
+        "adf developer", "synapse developer",
     ]
-
     if any(kw in title_lower for kw in core_de_keywords):
         return True, "Title contains core Data Engineering keyword."
 
-    # 3. Generic Developer check + Core Skills check
-    generic_developer_keywords = [
-        "software engineer", "developer", "programmer", "associate", "consultant", "analyst", "engineer", "python developer", "sql developer"
+    # 5. Adjacent roles allowed only if core DE skills appear in tags/description
+    adjacent_title_keywords = [
+        "software engineer", "associate engineer", "python developer",
+        "sql developer", "associate", "analyst", "engineer", "developer",
     ]
-
-    if any(kw in title_lower for kw in generic_developer_keywords):
-        # Must have at least one core DE skill in tags/skills or description.
-        core_de_skills = [
-            "pyspark", "spark", "databricks", "adf", "synapse", "etl", "delta lake",
-            "azure data factory", "azure data lake", "data warehouse", "dwh", "data pipeline"
-        ]
-
+    if any(kw in title_lower for kw in adjacent_title_keywords):
+        core_de_skills = ["python", "sql","pyspark","spark","databricks","etl","data pipeline","adf", "azure data factory", "synapse","azure data lake","data warehouse","delta lake","airflow","kafka","git"]
         job_skills = [tag.lower() for tag in getattr(job, "tags", [])]
         desc_lower = (getattr(job, "description", "") or "").lower()
 
         for skill in core_de_skills:
             if skill in job_skills or skill in desc_lower:
-                return True, f"Generic title matched with core skill '{skill}' in tags/description."
+                return True, f"Adjacent title matched with core DE skill '{skill}' in tags/description."
 
-        return False, "Generic developer title but lacks core Data Engineering skills in tags/description."
+        return False, "Adjacent title but lacks core Data Engineering skills in tags/description."
 
-    return False, "Does not match any core Data Engineering title or generic developer patterns."
+    return False, "Does not match any core Data Engineering title or adjacent patterns."
 
 
 def log_job_to_markdown(job, source: str = "search") -> None:
@@ -394,7 +441,7 @@ def log_job_to_markdown(job, source: str = "search") -> None:
         )
         company = job.company.replace("|", "\\|").replace("\n", " ").strip()
         title   = job.title.replace("|", "\\|").replace("\n", " ").strip()
-        new_row = f"| {time_str} | {company} | {title} | `{job.job_id}` | [View Job]({job_url}) |"
+        new_row = f"| {time_str} | {company} | {title} | `{job.job_id}` | {job_url} |"
 
         # Buckets keyed by section name
         rows: dict[str, list[str]] = {s: [] for s in SECTIONS}
@@ -455,7 +502,7 @@ def log_external_job_to_readme(job) -> None:
         company = job.company.replace("|", "\\|").replace("\n", " ").strip()
         title   = job.title.replace("|", "\\|").replace("\n", " ").strip()
 
-        new_row = f"| {today} | {time_str} | {company} | {title} | `{job.job_id}` | [View Job]({job_url}) |"
+        new_row = f"| {today} | {time_str} | {company} | {title} | `{job.job_id}` | {job_url} |"
 
         lines = []
         if os.path.exists(readme_path):
@@ -1060,14 +1107,21 @@ def auto_mark_current_slot(run_type: str) -> None:
 def catch_up_run() -> bool:
     """
     Checks all scheduled slots up to the current time. If any were missed today,
-    runs them sequentially.
+    runs them sequentially — even if you come online hours late.
+
+    Triggered by:
+      • launchd every 15 minutes (StartInterval)
+      • immediately on network-config change, i.e. when you come online (WatchPaths)
+
+    This means: if you come online at 1 PM, all missed slots (09:15, 11:15, 13:15, ...)
+    will be run back-to-back automatically.
     """
     log.info("=" * 55)
     log.info("CATCH-UP CHECK — %s", datetime.now().strftime("%Y-%m-%d %H:%M"))
 
-    # Quick internet check first. If no internet, exit immediately to be lightweight.
+    # Quick internet check first. If no internet, exit immediately — no point running.
     try:
-        r = requests.get("https://www.google.com", timeout=3)
+        r = requests.get("https://www.google.com", timeout=5)
         if r.status_code != 200:
             log.info("Internet not active during catch-up check. Exiting.")
             return False
@@ -1089,24 +1143,32 @@ def catch_up_run() -> bool:
         except Exception:
             pass
 
-    missed_slots = []
-    for slot in SCHEDULED_SLOTS:
-        if slot["time"] <= current_time_str:
-            if slot["time"] not in completed_slots:
-                missed_slots.append(slot)
+    missed_slots = [
+        slot for slot in SCHEDULED_SLOTS
+        if slot["time"] <= current_time_str and slot["time"] not in completed_slots
+    ]
 
     if not missed_slots:
         log.info("All scheduled slots up to %s are already completed.", current_time_str)
         log.info("=" * 55)
         return True
 
-    log.info("Found %d missed slots today: %s", len(missed_slots), [s["time"] for s in missed_slots])
+    log.info(
+        "Catching up %d missed slot(s): %s — running all now.",
+        len(missed_slots),
+        [s["time"] for s in missed_slots],
+    )
 
-    for slot in missed_slots:
+    succeeded = 0
+    failed = 0
+    for i, slot in enumerate(missed_slots):
         slot_time = slot["time"]
         slot_type = slot["type"]
 
-        log.info("Running catch-up for slot %s (%s)...", slot_time, slot_type)
+        log.info(
+            "[%d/%d] Catch-up slot %s (%s)...",
+            i + 1, len(missed_slots), slot_time, slot_type,
+        )
         if slot_type == "full":
             success = upload_once()
         else:
@@ -1114,17 +1176,27 @@ def catch_up_run() -> bool:
 
         if success:
             mark_slot_completed(slot_time)
-            # Pause briefly if there are more catch-ups to run
-            if slot != missed_slots[-1]:
-                log.info("Pausing 30 seconds before next caught-up run...")
+            succeeded += 1
+            # Brief pause between back-to-back catch-up runs (not after the last one)
+            if i < len(missed_slots) - 1:
+                log.info("Pausing 30 seconds before next catch-up slot...")
                 time.sleep(30)
         else:
-            log.error("Catch-up run failed for slot %s. Stopping catch-up queue.", slot_time)
-            break
+            # Don't abort the whole queue — skip this slot and continue.
+            # A later catch-up cycle will NOT re-run it (slot is not marked), so
+            # the next 15-min watcher poll will retry it if still within the day.
+            log.error(
+                "Catch-up run failed for slot %s — skipping (will retry in next watcher cycle).",
+                slot_time,
+            )
+            failed += 1
 
-    log.info("Catch-up cycle complete.")
+    log.info(
+        "Catch-up cycle complete. Succeeded: %d | Failed/skipped: %d",
+        succeeded, failed,
+    )
     log.info("=" * 55)
-    return True
+    return failed == 0
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1148,6 +1220,30 @@ def run_scheduler() -> None:
 
 if __name__ == "__main__":
     import argparse
+    import fcntl
+
+    # Prevent concurrent runs of the script (e.g., scheduled run and catch-up watcher overlapping)
+    lock_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "daily_upload.lock")
+    lock_file = open(lock_file_path, "w")
+    _is_catch_up = "--catch-up" in sys.argv
+    _lock_wait_secs = 600  # catch-up waits up to 10 minutes for any concurrent run to finish
+    _lock_poll_secs = 15
+    _lock_waited = 0
+    while True:
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break  # acquired lock — proceed
+        except IOError:
+            if _is_catch_up and _lock_waited < _lock_wait_secs:
+                log.info(
+                    "Another instance is running. Catch-up will wait %ds then retry (waited %ds/%ds)...",
+                    _lock_poll_secs, _lock_waited, _lock_wait_secs,
+                )
+                time.sleep(_lock_poll_secs)
+                _lock_waited += _lock_poll_secs
+            else:
+                log.info("Another instance of daily_upload.py is already running. Exiting.")
+                sys.exit(0)
 
     parser = argparse.ArgumentParser(description="Naukri daily uploader + smart job applier")
     group  = parser.add_mutually_exclusive_group()

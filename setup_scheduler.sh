@@ -209,6 +209,16 @@ cat <<EOF > "$WATCHER_PLIST"
     <key>StartInterval</key>
     <integer>900</integer>
 
+    <!-- Run when network configuration changes (e.g. on wake/connecting to internet) -->
+    <key>WatchPaths</key>
+    <array>
+        <string>/private/var/run/resolv.conf</string>
+    </array>
+
+    <!-- Prevent running more than once every 30 seconds if file changes rapidly -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
     <key>WorkingDirectory</key>
     <string>$WORKSPACE_DIR</string>
 
