@@ -11,39 +11,21 @@ class JobFilterPipeline2:
 
     # ── your stack — AI scores against this ──────────────────────────────────
     MY_STACK = [
-        # ── Core backend ──────────────────────────────────────────────
-        "node", "node.js", "nodejs", "python", "javascript", "typescript",
+        # ── Core Data ──────────────────────────────────────────────
+        "python", "sql", "pyspark", "spark", "scala", "hadoop", 
+        "hive", "pandas", "numpy", "etl", "data engineering",
 
-        # ── Frameworks ───────────────────────────────────────────────
-        "express", "express.js", "fastapi", "flask", "nestjs", "nest.js",
-        "django", "hapi", "koa",
-
-        # ── Databases ────────────────────────────────────────────────
-        "mongodb", "mongoose", "postgresql", "mysql", "redis", "sqlite",
-        "dynamodb", "firestore", "cassandra", "elasticsearch",
-        "sql", "nosql",
+        # ── Databases & Warehouses ────────────────────────────────────────────────
+        "postgresql", "mysql", "redshift", "snowflake", "bigquery", 
+        "mongodb", "cassandra", "nosql", "dynamodb",
 
         # ── Cloud & DevOps ───────────────────────────────────────────
-        "aws", "gcp", "azure", "docker", "kubernetes", "ci/cd",
-        "github actions", "jenkins", "terraform", "linux", "nginx",
-        "ec2", "s3", "lambda", "cloudwatch",
+        "aws", "azure", "gcp", "docker", "kubernetes", "ci/cd",
+        "jenkins", "terraform", "linux", "ec2", "s3", "lambda", 
+        "azure data factory", "adf", "databricks", "glue", "emr",
 
-        # ── APIs & Messaging ─────────────────────────────────────────
-        "rest", "rest api", "restful", "graphql", "websocket", "grpc",
-        "kafka", "rabbitmq", "celery", "bull", "socket.io",
-
-        # ── Automation & Scraping ────────────────────────────────────
-        "selenium", "playwright", "puppeteer", "beautifulsoup", "scrapy",
-        "web scraping", "automation", "n8n", "trigger.dev", "zapier",
-
-        # ── AI / LLM ─────────────────────────────────────────────────
-        "langchain", "openai", "llm", "rag", "vector db", "pinecone",
-        "weaviate", "chromadb", "huggingface", "embeddings", "genai",
-        "langsmith", "llamaindex",
-
-        # ── Tools & Practices ────────────────────────────────────────
-        "git", "github", "postman", "swagger", "jwt", "oauth",
-        "microservices", "system design", "api design",
+        # ── Tools & Orchestration ─────────────────────────────────────────
+        "airflow", "luigi", "kafka", "git", "github",
     ]
 
     # ── hard veto BEFORE ai — title only, zero ambiguity ────────────────────
@@ -54,10 +36,11 @@ class JobFilterPipeline2:
         "principal engineer", "staff engineer", "architect",
         "vp of", "head of engineering", "head of technology",
         "founder", "tutor", "trainer",
-        "data scientist", "ml engineer", "data engineer", "intern", "internship",
-        "engineering manager", "etl engineer", "prompt engineer",
+        "data scientist", "ml engineer", "intern", "internship",
+        "engineering manager", "prompt engineer",
         "analyst", "associate is engineer", "infra engineer",
-        "observability engineer","Manager"
+        "observability engineer","Manager",
+        "backend developer", "full stack developer"
     ]
 
 
@@ -79,12 +62,9 @@ class JobFilterPipeline2:
 
     SOFTWARE_KEYWORDS = {
         "software", "developer", "engineer", "engineering",
-        "backend", "full stack", "fullstack",
-        "python", "node", "nodejs", "javascript", "typescript",
-        "django", "fastapi", "flask", "golang",
-        "devops", "cloud", "sre", "platform",
-        "api", "microservices", "infrastructure",
-        "tech lead", "sde", "swe", "mts", "programmer","react"
+        "data", "etl", "analytics", "pyspark", "big data",
+        "python", "cloud", "platform",
+        "tech lead", "sde", "swe", "mts", "programmer"
     }
 
     # if ANY of these appear in title → drop it
@@ -92,8 +72,8 @@ class JobFilterPipeline2:
         "frontend", "front-end", "front end",
       "angular", "vue", "ui developer", "ui engineer",
         "android", "ios", "flutter", "mobile", "kotlin", "swift",
-        "embedded", "firmware",
-        "ml engineer", "data engineer", "data scientist","intern", "internship", "lead","Golang","MLops","devops","mlops", "golang"," Web developer - Java Technologies"
+        "embedded", "firmware", "backend", "fullstack", "full stack",
+        "ml engineer", "data scientist","intern", "internship", "lead","Golang","MLops","devops","mlops", "golang"," Web developer - Java Technologies"
         ," Member of Technical Staff - MTS"
     }
 
@@ -369,107 +349,94 @@ class JobFilterPipeline2:
 
 
         prompt2 = f"""
-You are a strict job filter for a backend developer. Score each job 0-100.
+You are a strict job filter for a Data Engineer. Score each job 0-100.
 Be precise — avoid clustering scores at 85 or 60. Use the full range.
 
 CANDIDATE:
-- 2.3 years experience, backend-focused
-- Core stack: Node.js, Python, MongoDB, REST APIs, AWS
-- Also knows: Docker, CI/CD, automation, Selenium, Playwright, web scraping,
-  n8n, trigger.dev, LangChain, RAG, vector DBs, FastAPI, Flask, Express
-- Looking for: SDE1 / junior-mid backend or fullstack-backend roles
-- Prefers: startups, product companies, AI/automation work, remote/hybrid
-- Will NOT do: pure frontend, mobile, ML research, data science, DevOps-only
+- 2.0 years experience, Data Engineering focused
+- Core stack: Python, SQL, Pyspark, Spark, AWS, Azure
+- Also knows: ETL, Data Pipelines, Databricks, Hadoop, Git, CI/CD
+- Looking for: Data Engineer, ETL Developer, Big Data Engineer roles
+- Prefers: product companies, startups, data infrastructure teams
+- Will NOT do: pure frontend, mobile app dev, pure backend web dev (Node.js/Django), ML research/modeling (Data Scientist)
 
 SCORING RUBRIC — use the full range, not just 85/60:
 
 90-100 — perfect fit, apply immediately
-  Node.js OR Python is mandatory tag + backend/fullstack role or python/node js is in the title of the job
-  + exp 0-2 yrs + familiar supporting stack. Startup or product company.
+  Pyspark OR Data Engineer is a mandatory tag/title + 0-3 yrs exp + familiar supporting stack (AWS/Azure/SQL).
 
 75-89 — strong fit, apply
-  Node.js or Python present (mandatory or optional) + backend lean
-  + exp 0-3 yrs. Maybe one unfamiliar tag but overall good match.
+  Python or SQL present + Data/ETL lean + exp 0-3 yrs. Maybe one unfamiliar tool but overall good match.
 
 55-74 — decent fit, apply with lower priority
-  Some stack overlap, role is fullstack but not backend-heavy,
-  or exp is 3-4 yrs, or company type unclear.
+  Some stack overlap, role is more generic software engineering but mentions data, or exp is 3-4 yrs.
 
 30-54 — weak, skip unless nothing better
-  Familiar tech present but role is vague, frontend-leaning,
-  or exp mismatch 4-5 yrs.
+  Familiar tech present but role is heavily backend web dev, or exp mismatch 4-5 yrs.
 
 10-29 — poor match
-  Very little stack overlap, or role is clearly not backend and have java,  
+  Very little stack overlap, or role is clearly Data Science (heavy ML/Math) or full stack web dev.
 
 0-9 — do not apply
-   That contain Java  and dotnet  Zero stack overlap (Java+Spring only, PHP only, .NET only etc.)
-  OR walk-in / venue / intern role.
+  Zero stack overlap (Java/Spring only, .NET web, React only) OR walk-in / intern role.
 
 RULES:
-- Node.js + MongoDB + 0-2yr backend → 90+, no exceptions
-- Java alongside Node/Python is fine — judge the full picture
-- Fullstack with Node backend → 65-80 depending on tag quality
-- "Software Engineer" with Python/Node tags → treat as backend, score 70-85
-- Pure React/Angular/Vue with no backend tags → 0-15
-- DevOps/infra-only with no app dev → 20-40
+- Pyspark + SQL + 0-3yr Data Engineer → 90+, no exceptions
+- Java/Scala alongside Pyspark/Spark is fine — judge the full picture
+- "Software Engineer" with Pyspark/ETL tags → treat as Data Engineer, score 70-85
+- Pure Backend Web Dev (Node.js/Django) → 10-20
+- Pure Frontend (React/Angular) → 0-10
 - Intern roles → 0
 - Missing stack items is normal, don't over-penalise
 - Recency: 0-1 days old → mentally add 5 points
 
 Return ONLY valid JSON, no explanation outside it:
 {{
-  "0": {{"score": 92, "reason": "Node.js + MongoDB mandatory, 0-2yr, startup backend"}},
-  "1": {{"score": 0,  "reason": "Java/Spring only, zero overlap"}}
+  "0": {{"score": 92, "reason": "Pyspark + SQL mandatory, 0-2yr, Data Engineer role"}},
+  "1": {{"score": 0,  "reason": "React/Frontend only, zero overlap"}}
 }}
 
 Jobs:
 {job_block}
 """
         prompt = f"""
-You are scoring job listings for a backend developer. Score each job 0-100.
+You are scoring job listings for a Data Engineer. Score each job 0-100.
 
 CANDIDATE:
-- 2 years experience, backend-focused
-- Core stack: Node.js, Python, MongoDB, REST APIs, AWS
-- Also knows: automation, Selenium, web scraping, Docker, CI/CD, n8n, trigger.dev,
-  Playwright, Postman, Git, LangChain, RAG, vector DBs
-- Looking for: SDE1 or junior-mid backend/fullstack-backend roles
-- Likes: startups, product companies, AI/automation work, remote/hybrid
+- 2 years experience, Data Engineering focused
+- Core stack: Python, SQL, Pyspark, Spark, AWS, Azure, ETL
+- Looking for: Data Engineer, Big Data Engineer, or ETL roles
+- Likes: startups, product companies, building data pipelines
 
 SCORING:
 
 85-100 — apply immediately
-  Node.js or Python is a mandatory tag, other tags are familiar stack,
-  exp is 0-3 yrs or not specified, role is backend or fullstack-backend.
+  Pyspark, Python, or SQL is mandatory, other tags are familiar data stack,
+  exp is 0-3 yrs or not specified, role is Data Engineering.
 
 60-84 — good fit, apply
-  Node.js or Python present but not mandatory, or fullstack role with
-  backend-heavy tags, or slight exp mismatch (3-4 yrs).
+  Python or SQL present, data-heavy role, or slight exp mismatch (3-4 yrs).
 
 35-59 — decent, worth applying
-  Some stack overlap but role is vague or tags are mixed frontend/backend,
-  or exp is borderline 4-5 yrs.
+  Some stack overlap but role is vague software engineering, or exp is borderline 4-5 yrs.
 
 10-34 — weak match, skip unless desperate
-  Familiar tech present but frontend-dominated, or very little tag overlap.
+  Familiar tech present but role is Data Science (ML) or Backend Web Dev.
 
 0 — do not apply
-  Tags are entirely foreign stack (Java+Spring+Hibernate only, PHP only, etc.)
-  with zero overlap with candidate's stack. OR walk-in / venue in title.
+  Tags are entirely foreign stack (Frontend, Mobile, .NET Web) or walk-in/intern.
 
-COMMON SENSE RULES (these matter):
-- Java appearing alongside Node.js or Python is FINE — score on the whole picture.
-- "Fullstack" with Node backend is a GOOD fit (60-80 range).
-- Missing one or two stack items is normal — don't penalise heavily.
-- A job tagged [node.js, mongodb] with exp 0-2 yrs should score 85+.
-- A job tagged [java, spring, hibernate] with NO node/python should score 0-15.
+COMMON SENSE RULES:
+- Scala/Java alongside Spark is FINE.
+- Missing one or two stack items is normal.
+- A job tagged [pyspark, sql, aws] with exp 0-3 yrs should score 85+.
+- A job tagged [nodejs, express, mongodb] should score 0-15.
 - Recency matters: jobs 0-1 days old get +5 bonus mentally.
 
 Return ONLY valid JSON, no explanation outside it:
 {{
-  "0": {{"score": 85, "reason": "Node.js + MongoDB mandatory, 0-2yr, startup"}},
-  "1": {{"score": 0,  "reason": "Java/Spring only, zero stack overlap"}}
+  "0": {{"score": 85, "reason": "Pyspark + SQL, 0-2yr Data Engineer"}},
+  "1": {{"score": 0,  "reason": "Node.js Web Backend, not Data Engineering"}}
 }}
 
 Jobs:

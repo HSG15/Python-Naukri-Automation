@@ -17,22 +17,22 @@
     // =========================================================
     const CFG = {
         // Hours when the assistant sleeps (no unnatural overnight activity)
-        SLEEP_START_HOUR : 23,              // 11 PM
-        SLEEP_END_HOUR   : 7,               // 7 AM
+        SLEEP_START_HOUR: 23,              // 11 PM
+        SLEEP_END_HOUR: 7,               // 7 AM
 
         // Delay between full browsing cycles (ms) — randomised each time
-        CYCLE_MIN_MS : 3.5 * 60 * 1000,    // 3.5 min
-        CYCLE_MAX_MS : 9   * 60 * 1000,    // 9 min
+        CYCLE_MIN_MS: 3.5 * 60 * 1000,    // 3.5 min
+        CYCLE_MAX_MS: 9 * 60 * 1000,    // 9 min
 
         // How long to "read" an open JD (ms)
-        READ_MIN_MS : 28 * 1000,            // 28 sec
-        READ_MAX_MS : 85 * 1000,            // 85 sec
+        READ_MIN_MS: 28 * 1000,            // 28 sec
+        READ_MAX_MS: 85 * 1000,            // 85 sec
 
         // Don't auto-browse if user has been active on THIS page within this window
-        USER_IDLE_MS : 90 * 1000,           // 90 seconds
+        USER_IDLE_MS: 90 * 1000,           // 90 seconds
 
         // Job search pages to cycle through (your actual keywords)
-        SEARCH_PAGES : [
+        SEARCH_PAGES: [
             'https://www.naukri.com/data-engineer-jobs',
             'https://www.naukri.com/pyspark-developer-jobs',
             'https://www.naukri.com/azure-data-engineer-jobs',
@@ -45,19 +45,19 @@
     //  State
     // =========================================================
     const pageLoadTime = Date.now();
-    let cycleCount     = parseInt(localStorage.getItem('nke_cycle_count') || '0', 10);
+    let cycleCount = parseInt(localStorage.getItem('nke_cycle_count') || '0', 10);
     let lastUserAction = Date.now();
-    let paused         = false;
-    let statusEl       = null;
-    let msgEl          = null;
-    let subEl          = null;
-    let cycleEl        = null;
-    let timeEl         = null;
+    let paused = false;
+    let statusEl = null;
+    let msgEl = null;
+    let subEl = null;
+    let cycleEl = null;
+    let timeEl = null;
 
     // ── Daily stats (persisted in localStorage) ─────────────────────
-    const _today    = new Date().toISOString().slice(0, 10);
+    const _today = new Date().toISOString().slice(0, 10);
     const _statsKey = 'nke_stats_' + _today;
-    let   dailyStats = (function () {
+    let dailyStats = (function () {
         try {
             var s = JSON.parse(localStorage.getItem(_statsKey) || 'null');
             return (s && s.date === _today) ? s : { date: _today, cycles: 0, activeMs: 0 };
@@ -73,28 +73,28 @@
     // =========================================================
     //  Utilities
     // =========================================================
-    const rand    = (a, b) => Math.random() * (b - a) + a;
+    const rand = (a, b) => Math.random() * (b - a) + a;
     const randInt = (a, b) => Math.floor(rand(a, b + 1));
-    const sleep   = ms => new Promise(r => setTimeout(r, ms));
-    const nowStr  = () => new Date().toLocaleTimeString('en-IN', { hour12: false });
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const nowStr = () => new Date().toLocaleTimeString('en-IN', { hour12: false });
 
-    const isNight          = () => { const h = new Date().getHours(); return h >= CFG.SLEEP_START_HOUR || h < CFG.SLEEP_END_HOUR; };
-    const isIdle           = () => (Date.now() - lastUserAction) > CFG.USER_IDLE_MS;
-    const isJobsPage       = () => /naukri\.com\/([a-z-]+-jobs|jobs-in-[a-z-]+)/i.test(location.href);
+    const isNight = () => { const h = new Date().getHours(); return h >= CFG.SLEEP_START_HOUR || h < CFG.SLEEP_END_HOUR; };
+    const isIdle = () => (Date.now() - lastUserAction) > CFG.USER_IDLE_MS;
+    const isJobsPage = () => /naukri\.com\/([a-z-]+-jobs|jobs-in-[a-z-]+)/i.test(location.href);
     const isJobDetailsPage = () => /naukri\.com\/(job-listings-|jd\/)/i.test(location.href);
 
     // ── Daily stats helpers ─────────────────────────────────────────
     function fmtDuration(ms) {
         var s = Math.round(ms / 1000);
-        if (s < 60)  return s + 's';
+        if (s < 60) return s + 's';
         var m = Math.floor(s / 60), rs = s % 60;
-        if (m < 60)  return m + 'm ' + (rs < 10 ? '0' : '') + rs + 's';
+        if (m < 60) return m + 'm ' + (rs < 10 ? '0' : '') + rs + 's';
         var h = Math.floor(m / 60), rm = m % 60;
         return h + 'h ' + rm + 'm';
     }
 
     function saveDailyStats() {
-        try { localStorage.setItem(_statsKey, JSON.stringify(dailyStats)); } catch (_) {}
+        try { localStorage.setItem(_statsKey, JSON.stringify(dailyStats)); } catch (_) { }
     }
 
     function updateTodayLine() {
@@ -119,52 +119,54 @@
         const el = document.createElement('div');
         el.id = '__nke_badge';
         Object.assign(el.style, {
-            position       : 'fixed',
-            bottom         : '14px',
-            right          : '14px',
-            zIndex         : '2147483647',
-            background     : 'rgba(8, 12, 28, 0.93)',
-            backdropFilter : 'blur(14px)',
-            border         : '1px solid rgba(100, 160, 255, 0.18)',
-            borderRadius   : '12px',
-            padding        : '10px 16px',
-            minWidth       : '210px',
-            font           : '12px/1.65 "Inter", ui-monospace, monospace',
-            boxShadow      : '0 8px 32px rgba(0,0,0,0.55)',
-            cursor         : 'pointer',
-            userSelect     : 'none',
-            transition     : 'opacity 0.25s',
-            opacity        : '0.88',
+            position: 'fixed',
+            bottom: '14px',
+            right: '14px',
+            zIndex: '2147483647',
+            background: 'rgba(8, 12, 28, 0.93)',
+            backdropFilter: 'blur(14px)',
+            border: '1px solid rgba(100, 160, 255, 0.18)',
+            borderRadius: '12px',
+            padding: '10px 16px',
+            minWidth: '210px',
+            font: '12px/1.65 "Inter", ui-monospace, monospace',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+            cursor: 'pointer',
+            userSelect: 'none',
+            transition: 'opacity 0.25s',
+            opacity: '0.88',
         });
 
         el.innerHTML = [
             '<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">',
-                '<span id="__nke_icon" style="font-size:14px">&#9654;</span>',
-                '<span style="color:#c8d8f8;font-weight:700;letter-spacing:.6px">NKE</span>',
-                '<span style="color:#2a3a55;margin-left:auto;font-size:9px;text-transform:uppercase">Naukri Engage</span>',
+            '<span id="__nke_icon" style="font-size:14px">&#9654;</span>',
+            '<span style="color:#c8d8f8;font-weight:700;letter-spacing:.6px">NKE</span>',
+            '<span style="color:#2a3a55;margin-left:auto;font-size:9px;text-transform:uppercase">Naukri Engage</span>',
             '</div>',
             '<div id="__nke_msg" style="color:#7aabdd;font-size:11.5px;font-weight:500">Initialising...</div>',
             '<div id="__nke_sub" style="color:#2c4060;font-size:10px;margin-top:1px"></div>',
-        '<div id="__nke_today" style="color:#4ade80;font-size:10.5px;font-weight:600;margin-top:4px;min-height:14px">Today: —</div>',
+            '<div id="__nke_today" style="color:#4ade80;font-size:10.5px;font-weight:600;margin-top:4px;min-height:14px">Today: —</div>',
             '<div style="display:flex;gap:10px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.05);font-size:10px;color:#304050">',
-                '<span id="__nke_cycle">cycle 0</span>',
-                '<span style="margin-left:auto" id="__nke_time"></span>',
+            '<span id="__nke_cycle">cycle 0</span>',
+            '<span style="margin-left:auto" id="__nke_time"></span>',
             '</div>',
         ].join('');
 
         el.addEventListener('click', () => {
             paused = !paused;
             if (paused) setStatus('\u23F8', 'Paused manually', 'Click to resume');
-            else        setStatus('\u25B6', 'Resumed', '');
+            else setStatus('\u25B6', 'Resumed', '');
         });
         el.addEventListener('mouseenter', () => { el.style.opacity = '1'; });
         el.addEventListener('mouseleave', () => { el.style.opacity = '0.88'; });
 
-        document.body.appendChild(el);
-        msgEl   = document.getElementById('__nke_msg');
-        subEl   = document.getElementById('__nke_sub');
+        // Attach to <html> tag — React only manages <body> content,
+        // so this element survives SPA re-renders.
+        (document.body || document.documentElement).appendChild(el);
+        msgEl = document.getElementById('__nke_msg');
+        subEl = document.getElementById('__nke_sub');
         cycleEl = document.getElementById('__nke_cycle');
-        timeEl  = document.getElementById('__nke_time');
+        timeEl = document.getElementById('__nke_time');
         updateTodayLine();
         return el;
     }
@@ -172,12 +174,12 @@
     function setStatus(icon, msg, sub) {
         try {
             const iconEl = document.getElementById('__nke_icon');
-            if (iconEl)  iconEl.textContent  = icon;
-            if (msgEl)   msgEl.textContent   = msg;
-            if (subEl)   subEl.textContent   = (sub !== undefined) ? sub : '';
+            if (iconEl) iconEl.textContent = icon;
+            if (msgEl) msgEl.textContent = msg;
+            if (subEl) subEl.textContent = (sub !== undefined) ? sub : '';
             if (cycleEl) cycleEl.textContent = 'cycle ' + cycleCount;
-            if (timeEl)  timeEl.textContent  = nowStr();
-        } catch (_) {}
+            if (timeEl) timeEl.textContent = nowStr();
+        } catch (_) { }
     }
 
     setInterval(() => { if (timeEl) timeEl.textContent = nowStr(); }, 30000);
@@ -186,14 +188,14 @@
     //  Smooth scroll — easeInOutCubic
     // =========================================================
     function smoothScroll(container, targetY, durationMs) {
-        return new Promise(function(resolve) {
+        return new Promise(function (resolve) {
             const startY = container.scrollTop;
-            const delta  = targetY - startY;
+            const delta = targetY - startY;
             if (Math.abs(delta) < 2) return resolve();
             const t0 = performance.now();
             (function step(t) {
-                const p    = Math.min((t - t0) / durationMs, 1);
-                const ease = p < 0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;
+                const p = Math.min((t - t0) / durationMs, 1);
+                const ease = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
                 container.scrollTop = startY + delta * ease;
                 if (p < 1) requestAnimationFrame(step);
                 else resolve();
@@ -206,16 +208,16 @@
     // =========================================================
     function humanClick(el) {
         if (!el) return;
-        const r  = el.getBoundingClientRect();
-        const cx = r.left + r.width  / 2 + rand(-4, 4);
-        const cy = r.top  + r.height / 2 + rand(-3, 3);
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2 + rand(-4, 4);
+        const cy = r.top + r.height / 2 + rand(-3, 3);
         const opts = { view: window, bubbles: true, cancelable: true, clientX: cx, clientY: cy };
-        ['pointerover','mouseover','pointerenter','mouseenter',
-         'pointermove','mousemove',
-         'pointerdown','mousedown',
-         'pointerup','mouseup','click'].forEach(function(type) {
-            el.dispatchEvent(new MouseEvent(type, opts));
-        });
+        ['pointerover', 'mouseover', 'pointerenter', 'mouseenter',
+            'pointermove', 'mousemove',
+            'pointerdown', 'mousedown',
+            'pointerup', 'mouseup', 'click'].forEach(function (type) {
+                el.dispatchEvent(new MouseEvent(type, opts));
+            });
     }
 
     // =========================================================
@@ -225,13 +227,13 @@
         timeoutMs = timeoutMs || 6000;
         var found = document.querySelector(selector);
         if (found) return Promise.resolve(found);
-        return new Promise(function(resolve) {
-            var obs = new MutationObserver(function() {
+        return new Promise(function (resolve) {
+            var obs = new MutationObserver(function () {
                 var el = document.querySelector(selector);
                 if (el) { obs.disconnect(); resolve(el); }
             });
             obs.observe(document.body, { childList: true, subtree: true });
-            setTimeout(function() { obs.disconnect(); resolve(null); }, timeoutMs);
+            setTimeout(function () { obs.disconnect(); resolve(null); }, timeoutMs);
         });
     }
 
@@ -281,14 +283,14 @@
             return;
         }
         if (!isIdle()) {
-            setStatus('\uD83D\uDC64', 'You\'re browsing \u2014 paused', 'Resumes after ' + Math.round(CFG.USER_IDLE_MS/1000) + 's idle');
+            setStatus('\uD83D\uDC64', 'You\'re browsing \u2014 paused', 'Resumes after ' + Math.round(CFG.USER_IDLE_MS / 1000) + 's idle');
             return;
         }
 
         cycleCount++;
-        var cycleStart  = Date.now();   // track active time for this cycle
+        var cycleStart = Date.now();   // track active time for this cycle
         var targetPage = CFG.SEARCH_PAGES[cycleCount % CFG.SEARCH_PAGES.length];
-        var keyword    = targetPage.split('/').pop();
+        var keyword = targetPage.split('/').pop();
 
         // Step 1: Make sure we're on a jobs listing page
         if (!isJobsPage()) {
@@ -318,7 +320,7 @@
             setStatus('\u26A0', 'No job cards detected', 'Will retry next cycle');
             return;
         }
-        var idx  = randInt(0, Math.min(cards.length - 1, 9));
+        var idx = randInt(0, Math.min(cards.length - 1, 9));
         var card = cards[idx];
         card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         await sleep(rand(500, 1200));
@@ -348,7 +350,7 @@
         await sleep(rand(1500, 3000));
 
         // Step 6: Simulate reading the JD (Fallback for split-pane view)
-        var readMs  = rand(CFG.READ_MIN_MS, CFG.READ_MAX_MS);
+        var readMs = rand(CFG.READ_MIN_MS, CFG.READ_MAX_MS);
         var readSec = Math.round(readMs / 1000);
         setStatus('\uD83D\uDCD6', 'Reading JD (split pane) \u2014 ~' + readSec + 's', 'job ' + (idx + 1));
 
@@ -496,30 +498,59 @@
 
     // =========================================================
     //  Re-attach badge after SPA navigation
+    //  Uses both a MutationObserver (subtree) + a heartbeat
+    //  interval as a failsafe against React wipes.
     // =========================================================
-    new MutationObserver(function() {
+    let _rebuildScheduled = false;
+    function scheduleBadgeRebuild() {
+        if (_rebuildScheduled) return;
+        _rebuildScheduled = true;
+        setTimeout(function () {
+            _rebuildScheduled = false;
+            if (!document.getElementById('__nke_badge')) {
+                statusEl = buildBadge();
+                // Re-sync status elements after rebuild
+                msgEl = document.getElementById('__nke_msg');
+                subEl = document.getElementById('__nke_sub');
+                cycleEl = document.getElementById('__nke_cycle');
+                timeEl = document.getElementById('__nke_time');
+                updateTodayLine();
+            }
+        }, 600);  // small delay so React finishes its render pass
+    }
+
+    // Watch the full subtree — catches React/SPA inner DOM wipes
+    new MutationObserver(function () {
         if (!document.getElementById('__nke_badge')) {
-            statusEl = buildBadge();
+            scheduleBadgeRebuild();
         }
-    }).observe(document.documentElement, { childList: true, subtree: false });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+
+    // Heartbeat fallback — re-attaches badge every 1s if missing
+    setInterval(function () {
+        if (!document.getElementById('__nke_badge')) {
+            console.log('[NKE] Badge missing — re-attaching...');
+            scheduleBadgeRebuild();
+        }
+    }, 1000);
 
     // =========================================================
     //  Boot
     // =========================================================
     function boot() {
         if (/nlogin|checkout|payment/i.test(location.pathname)) {
-            setTimeout(function() { location.href = CFG.SEARCH_PAGES[0]; }, 2000);
+            setTimeout(function () { location.href = CFG.SEARCH_PAGES[0]; }, 2000);
             return;
         }
         statusEl = buildBadge();
-        
+
         if (isJobDetailsPage()) {
             setStatus('\uD83D\uDCD6', 'Job Details Page', 'Preparing reader...');
             console.log('[NKE] Naukri Engagement Assistant v1.0.0 — Reading Job Details');
             runJobDetailsReader();
         } else {
             setStatus('\u25B6', 'Engagement assistant active', 'Starting loop...');
-            console.log('[NKE] Naukri Engagement Assistant v1.0.0 started');
+            console.log('[NKE] Naukri Engagement Assistant v1.0.0 started — badge attached to:', document.getElementById('__nke_badge') ? document.getElementById('__nke_badge').parentElement.tagName : 'NOT FOUND');
             mainLoop();
         }
     }

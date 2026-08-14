@@ -240,10 +240,11 @@ def fetch_all_jobs(jc: NaukriJobClient) -> list:
 
     BQUERIES = [
         # Tier 1: exact stack match
-        {"keyword": "Node.js backend developer", "location": "Bangalore"},
-        {"keyword": "Python Developer",          "location": ""},
-        {"keyword": "Node.js Developer",         "location": ""},
-        {"keyword": "python backend developer",  "location": "Pune"},
+        {"keyword": "Data Engineer",             "location": "Pune"},
+        {"keyword": "Pyspark Developer",         "location": "Pune"},
+        {"keyword": "Azure Data Engineer",       "location": ""},
+        {"keyword": "AWS Data Engineer",         "location": ""},
+        {"keyword": "ETL Developer",             "location": ""},
     ]
 
     EXPERIENCE_LEVELS = [2]
