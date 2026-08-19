@@ -33,11 +33,11 @@
 
         // Job search pages to cycle through (your actual keywords)
         SEARCH_PAGES: [
-            'https://www.naukri.com/data-engineer-jobs',
-            'https://www.naukri.com/pyspark-developer-jobs',
-            'https://www.naukri.com/azure-data-engineer-jobs',
-            'https://www.naukri.com/aws-data-engineer-jobs',
-            'https://www.naukri.com/etl-developer-jobs',
+            'https://www.naukri.com/data-engineer-jobs?experience=2',
+            'https://www.naukri.com/pyspark-developer-jobs?experience=2',
+            'https://www.naukri.com/azure-data-engineer-jobs?experience=2',
+            'https://www.naukri.com/aws-data-engineer-jobs?experience=2',
+            'https://www.naukri.com/etl-developer-jobs?experience=2',
         ],
     };
 

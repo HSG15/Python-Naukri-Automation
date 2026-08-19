@@ -275,6 +275,11 @@ def fetch_all_jobs(jc: NaukriJobClient) -> list:
                     for job in jobs:
                         job_id = getattr(job, "id", None) or getattr(job, "job_id", None)
                         if job_id and job_id not in seen_ids:
+                            # 0. Company blacklist
+                            company = getattr(job, "company", "").lower()
+                            if any(c in company for c in ["accenture", "barclays", "amgen"]):
+                                continue
+                            
                             seen_ids.add(job_id)
                             new_jobs.append(job)
 

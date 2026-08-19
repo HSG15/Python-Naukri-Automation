@@ -289,7 +289,10 @@ class NaukriJobClient:
     def is_external_apply(self, job_id: str, sid: str = "") -> bool:
         # Returns True if the job redirects to an external company URL for apply.
         data = self.get_job_details(job_id, sid)
-        return data.get("job", {}).get("responseManager") == "companyUrl"
+        job_data = data.get("job", {})
+        if isinstance(job_data, list):
+            job_data = job_data[0] if len(job_data) > 0 else {}
+        return job_data.get("responseManager") == "companyUrl"
 
     # ----------------------------------------------------------------------------------
     # Apply job

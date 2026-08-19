@@ -335,6 +335,13 @@ def save_recommended_seen_id(job_id: str) -> None:
 
 def is_job_relevant(job) -> tuple[bool, str]:
     title_lower = job.title.lower()
+    company_lower = job.company.lower()
+
+    # 0. Company blacklist
+    company_blacklist = ["accenture", "barclays", "amgen"]
+    for comp in company_blacklist:
+        if comp in company_lower:
+            return False, f"Company '{job.company}' is blacklisted."
 
     # 1. Blacklist check — roles clearly outside Data Engineering scope
     blacklist_words = [
