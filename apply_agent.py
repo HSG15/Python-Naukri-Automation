@@ -240,8 +240,8 @@ def fetch_all_jobs(jc: NaukriJobClient) -> list:
 
     BQUERIES = [
         # Tier 1: exact stack match
-        {"keyword": "Data Engineer",             "location": "Pune"},
-        {"keyword": "Pyspark Developer",         "location": "Pune"},
+        {"keyword": "Data Engineer",             "location": ""},
+        {"keyword": "Pyspark Developer",         "location": ""},
         {"keyword": "Azure Data Engineer",       "location": ""},
         {"keyword": "AWS Data Engineer",         "location": ""},
         {"keyword": "ETL Developer",             "location": ""},

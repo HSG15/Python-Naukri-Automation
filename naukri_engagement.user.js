@@ -339,11 +339,16 @@
         }
         humanClick(titleLink);
 
-        // Step 5: Wait for detail panel (only relevant if split pane is active and same-tab navigation didn't unload page)
+        // Step 5: Wait for detail panel or page unload
         const panel = await waitFor('.detail-view-container, .jd-pane, [class*="jobDetail"], [class*="detailView"]', 6000);
         if (!panel) {
-            // We expect the page to have unloaded for same-tab navigation.
-            // If it hasn't, sleep a bit more to be safe.
+            // If the split pane didn't appear, the page should have unloaded.
+            // If it hasn't unloaded (we are still here), the click probably failed due to site changes.
+            // So we forcefully navigate to the job link.
+            if (titleLink && titleLink.href) {
+                console.log('[NKE] Click failed to navigate, forcing location.href to:', titleLink.href);
+                location.href = titleLink.href;
+            }
             await sleep(rand(2000, 4000));
             return;
         }

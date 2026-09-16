@@ -233,8 +233,8 @@ class JobFilterPipeline2:
     def experience_filter(self, jobs):
         return [
             j for j in jobs
-            if j.get("experience_min", 0) <= 4
-            and j.get("experience_max", 10) > 0
+            if j.get("experience_min", 0) <= 2
+            and j.get("experience_max", 10) >= 2
         ]
 
     # =========================================================
@@ -369,16 +369,13 @@ SCORING RUBRIC — use the full range, not just 85/60:
   Python or SQL present + Data/ETL lean + exp 0-3 yrs. Maybe one unfamiliar tool but overall good match.
 
 55-74 — decent fit, apply with lower priority
-  Some stack overlap, role is more generic software engineering but mentions data, or exp is 3-4 yrs.
+  Some stack overlap, role is more generic software engineering but mentions data, and exp is within 0-3 yrs.
 
-30-54 — weak, skip unless nothing better
-  Familiar tech present but role is heavily backend web dev, or exp mismatch 4-5 yrs.
-
-10-29 — poor match
-  Very little stack overlap, or role is clearly Data Science (heavy ML/Math) or full stack web dev.
+10-34 — weak match, skip unless nothing better
+  Familiar tech present but role is heavily backend web dev or data science.
 
 0-9 — do not apply
-  Zero stack overlap (Java/Spring only, .NET web, React only) OR walk-in / intern role.
+  Zero stack overlap OR walk-in / intern role OR strictly requires 4+ years of experience.
 
 RULES:
 - Pyspark + SQL + 0-3yr Data Engineer → 90+, no exceptions
@@ -415,16 +412,16 @@ SCORING:
   exp is 0-3 yrs or not specified, role is Data Engineering.
 
 60-84 — good fit, apply
-  Python or SQL present, data-heavy role, or slight exp mismatch (3-4 yrs).
+  Python or SQL present, data-heavy role, exp is 0-3 yrs.
 
 35-59 — decent, worth applying
-  Some stack overlap but role is vague software engineering, or exp is borderline 4-5 yrs.
+  Some stack overlap but role is vague software engineering.
 
 10-34 — weak match, skip unless desperate
   Familiar tech present but role is Data Science (ML) or Backend Web Dev.
 
 0 — do not apply
-  Tags are entirely foreign stack (Frontend, Mobile, .NET Web) or walk-in/intern.
+  Tags are entirely foreign stack (Frontend, Mobile, .NET Web) or walk-in/intern, or requires 4+ years of experience.
 
 COMMON SENSE RULES:
 - Scala/Java alongside Spark is FINE.
