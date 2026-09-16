@@ -97,13 +97,21 @@
         try { localStorage.setItem(_statsKey, JSON.stringify(dailyStats)); } catch (_) { }
     }
 
+    let currentCycleStartTime = null;
+
     function updateTodayLine() {
         var el = document.getElementById('__nke_today');
         if (!el) return;
-        if (dailyStats.activeMs === 0 && dailyStats.cycles === 0) {
+        
+        let totalMs = dailyStats.activeMs;
+        if (currentCycleStartTime) {
+             totalMs += (Date.now() - currentCycleStartTime);
+        }
+
+        if (totalMs === 0 && dailyStats.cycles === 0) {
             el.textContent = 'Today: no activity yet';
         } else {
-            el.textContent = 'Today: ' + fmtDuration(dailyStats.activeMs)
+            el.textContent = 'Today: ' + fmtDuration(totalMs)
                 + ' \u00B7 ' + dailyStats.cycles
                 + ' cycle' + (dailyStats.cycles !== 1 ? 's' : '');
         }
@@ -182,7 +190,10 @@
         } catch (_) { }
     }
 
-    setInterval(() => { if (timeEl) timeEl.textContent = nowStr(); }, 30000);
+    setInterval(() => { 
+        if (timeEl) timeEl.textContent = nowStr(); 
+        updateTodayLine();
+    }, 1000);
 
     // =========================================================
     //  Smooth scroll — easeInOutCubic
@@ -289,6 +300,7 @@
 
         cycleCount++;
         var cycleStart = Date.now();   // track active time for this cycle
+        currentCycleStartTime = cycleStart;
         var targetPage = CFG.SEARCH_PAGES[cycleCount % CFG.SEARCH_PAGES.length];
         var keyword = targetPage.split('/').pop();
 
@@ -296,6 +308,7 @@
         if (!isJobsPage()) {
             setStatus('\uD83D\uDD00', 'Going to job search...', keyword);
             await sleep(rand(800, 2000));
+            currentCycleStartTime = null;
             location.href = targetPage;
             return;
         }
@@ -304,6 +317,7 @@
         if (cycleCount % 6 === 0) {
             setStatus('\uD83D\uDD00', 'Switching keyword for variety...', keyword);
             await sleep(rand(500, 1200));
+            currentCycleStartTime = null;
             location.href = targetPage;
             return;
         }
@@ -318,6 +332,7 @@
         var cards = getJobCards();
         if (cards.length === 0) {
             setStatus('\u26A0', 'No job cards detected', 'Will retry next cycle');
+            currentCycleStartTime = null;
             return;
         }
         var idx = randInt(0, Math.min(cards.length - 1, 9));
@@ -328,6 +343,7 @@
         var titleLink = getTitleLink(card);
         if (!titleLink) {
             setStatus('\u26A0', 'Title link not found', 'card ' + (idx + 1));
+            currentCycleStartTime = null;
             return;
         }
 
@@ -335,6 +351,7 @@
         if (!titleLink.href.includes('naukri.com')) {
             setStatus('\u26A0', 'Skipping external job link', 'Will retry next cycle');
             await sleep(1500);
+            currentCycleStartTime = null;
             return;
         }
 
@@ -377,6 +394,7 @@
         // Step 7: Done — record active time
         dailyStats.cycles++;
         dailyStats.activeMs += (Date.now() - cycleStart);
+        currentCycleStartTime = null;
         saveDailyStats();
         updateTodayLine();
         setStatus('\u2705', 'JD read \u2014 job ' + (idx + 1), 'cycle ' + cycleCount + ' complete');
@@ -390,10 +408,12 @@
     // =========================================================
     async function runJobDetailsReader() {
         setStatus('\uD83D\uDCD6', 'Reading Job Details...', 'Initialising...');
+        currentCycleStartTime = pageLoadTime;
         await sleep(rand(3000, 5000));
 
         if (!isIdle()) {
             setStatus('\uD83D\uDC64', 'User active', 'Automation paused');
+            currentCycleStartTime = null;
             return;
         }
 
@@ -408,6 +428,7 @@
 
         if (!isIdle()) {
             setStatus('\uD83D\uDC64', 'User active', 'Automation paused');
+            currentCycleStartTime = null;
             return;
         }
 
@@ -419,6 +440,7 @@
 
         if (!isIdle()) {
             setStatus('\uD83D\uDC64', 'User active', 'Automation paused');
+            currentCycleStartTime = null;
             return;
         }
 
@@ -433,12 +455,14 @@
 
         if (!isIdle()) {
             setStatus('\uD83D\uDC64', 'User active', 'Will not return automatically');
+            currentCycleStartTime = null;
             return;
         }
 
         // Record stats
         dailyStats.cycles++;
         dailyStats.activeMs += (Date.now() - pageLoadTime);
+        currentCycleStartTime = null;
         saveDailyStats();
         updateTodayLine();
 
