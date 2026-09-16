@@ -332,6 +332,12 @@
         }
 
         // Step 4: Click the job (forcing same-tab navigation)
+        if (!titleLink.href.includes('naukri.com')) {
+            setStatus('\u26A0', 'Skipping external job link', 'Will retry next cycle');
+            await sleep(1500);
+            return;
+        }
+
         setStatus('\uD83D\uDCC4', 'Opening job ' + (idx + 1) + ' of ' + cards.length, '');
         if (titleLink) {
             titleLink.removeAttribute('target');
