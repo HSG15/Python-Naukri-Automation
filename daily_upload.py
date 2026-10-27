@@ -43,6 +43,12 @@ sys.path.insert(0, os.path.dirname(__file__))
 from src.client.naukri_client import NaukriLoginClient
 from src.client.job_client import NaukriJobClient
 from src.exceptions.exceptions import NaukriClientError
+from src.tracker.profile_tracker import (
+    record_profile_metrics,
+    update_daily_markdown_and_csv,
+    load_history,
+    format_terminal_dashboard,
+)
 
 # ── logging ──────────────────────────────────────────────────────
 logging.basicConfig(
@@ -58,11 +64,13 @@ log = logging.getLogger(__name__)
 
 load_dotenv()
 
-# ── credentials ──────────────────────────────────────────────────
+# ── credentials & resume source ──────────────────────────────────
 NAUKRI_USERNAME  = os.getenv("NAUKRI_USERNAME", "")
 NAUKRI_PASSWORD  = os.getenv("NAUKRI_PASSWORD", "")
 GDRIVE_FILE_ID   = os.getenv("GDRIVE_FILE_ID", "")
 RESUME_BASE_NAME = os.getenv("RESUME_BASE_NAME", "resume")
+SCRIPT_DIR       = os.path.dirname(os.path.abspath(__file__))
+LOCAL_RESUME_DIR = os.getenv("LOCAL_RESUME_DIR", os.path.join(SCRIPT_DIR, "MY_RESUME"))
 
 # ── schedule ─────────────────────────────────────────────────────
 UPLOAD_TIMES = ["09:15", "14:00"]   # full runs (resume + apply)
@@ -262,9 +270,57 @@ def wait_for_internet(timeout: int = 300, delay: int = 10) -> bool:
 # Resume helpers
 # ═══════════════════════════════════════════════════════════════════
 
-def dated_filename() -> str:
-    """e.g. Harishankar_Giri_Data_Engineer_Resume_22May2026.pdf"""
-    return f"{RESUME_BASE_NAME}_{datetime.now().strftime('%d%b%Y')}.pdf"
+def dated_filename(base_name: str = "") -> str:
+    """e.g. Harishankar_Giri_Data_Engineer_Resume_23Sep2026.pdf"""
+    name = (base_name or RESUME_BASE_NAME or "resume").strip()
+    return f"{name}_{datetime.now().strftime('%d%b%Y')}.pdf"
+
+
+def get_resume_bytes() -> tuple[bytes, str]:
+    """
+    Retrieves resume PDF bytes and base filename.
+    Priority:
+      1. Local folder (LOCAL_RESUME_DIR, default: MY_RESUME/)
+         Scans for .pdf files, picks the newest/most recently updated.
+      2. Google Drive download via GDRIVE_FILE_ID (fallback).
+    """
+    # 1. Check local directory first
+    if os.path.isdir(LOCAL_RESUME_DIR):
+        pdf_files = [
+            f for f in os.listdir(LOCAL_RESUME_DIR)
+            if f.lower().endswith(".pdf") and not f.startswith(".")
+        ]
+        if pdf_files:
+            # Sort newest first by last modified timestamp
+            pdf_files.sort(
+                key=lambda f: os.path.getmtime(os.path.join(LOCAL_RESUME_DIR, f)),
+                reverse=True,
+            )
+            chosen_file = pdf_files[0]
+            chosen_path = os.path.join(LOCAL_RESUME_DIR, chosen_file)
+            try:
+                with open(chosen_path, "rb") as f:
+                    content = f.read()
+                if content[:4] == b"%PDF":
+                    log.info("Using local resume from '%s': %s (%.1f KB)",
+                             LOCAL_RESUME_DIR, chosen_file, len(content) / 1024)
+                    base_name = os.path.splitext(chosen_file)[0]
+                    return content, base_name
+                else:
+                    log.warning("Local file '%s' does not have a valid PDF header.", chosen_file)
+            except Exception as exc:
+                log.warning("Failed to read local resume '%s': %s", chosen_path, exc)
+
+    # 2. Fallback to Google Drive if configured
+    if GDRIVE_FILE_ID:
+        log.info("No local resume found; downloading from Google Drive...")
+        content = download_from_gdrive(GDRIVE_FILE_ID)
+        return content, (RESUME_BASE_NAME or "resume")
+
+    raise RuntimeError(
+        f"No valid PDF resume found in local folder '{LOCAL_RESUME_DIR}' "
+        "and GDRIVE_FILE_ID is not configured in .env."
+    )
 
 
 def download_from_gdrive(file_id: str) -> bytes:
@@ -477,8 +533,20 @@ def log_job_to_markdown(job, source: str = "search") -> None:
         if not any(f"`{job.job_id}`" in r for r in rows[source]):
             rows[source].append(new_row)
 
+        # Check if a performance section already exists to preserve it
+        perf_section = ""
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                raw_text = f.read()
+            if "## 📊 Daily Profile Performance" in raw_text:
+                m = re.search(r"(## 📊 Daily Profile Performance\n\n.*?\n\n)(?=## |\Z)", raw_text, re.DOTALL)
+                if m:
+                    perf_section = m.group(1)
+
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(f"# Naukri Job Applications — {today}\n\n")
+            if perf_section:
+                f.write(perf_section)
             for sec in SECTIONS:
                 sec_rows = rows[sec]
                 f.write(f"{SECTION_HEADERS[sec]}\n\n")
@@ -839,20 +907,20 @@ def upload_once() -> bool:
     missing = [k for k, v in {
         "NAUKRI_USERNAME": NAUKRI_USERNAME,
         "NAUKRI_PASSWORD": NAUKRI_PASSWORD,
-        "GDRIVE_FILE_ID":  GDRIVE_FILE_ID,
     }.items() if not v]
     if missing:
         log.error("Missing .env vars: %s", ", ".join(missing))
         return False
 
-    # ── download resume ──────────────────────────────────────────
+    # ── load resume (local MY_RESUME folder with GDrive fallback) ────
     try:
-        pdf_bytes = download_from_gdrive(GDRIVE_FILE_ID)
+        pdf_bytes, detected_base_name = get_resume_bytes()
     except Exception as exc:
-        log.error("GDrive download failed: %s", exc)
+        log.error("Resume acquisition failed: %s", exc)
         return False
 
-    filename = dated_filename()
+    base_name = RESUME_BASE_NAME or detected_base_name
+    filename = dated_filename(base_name)
     log.info("Filename: %s", filename)
     tmp_path = f"/tmp/{filename}"
     with open(tmp_path, "wb") as f:
@@ -870,6 +938,12 @@ def upload_once() -> bool:
     # ── upload resume ────────────────────────────────────────────
     try:
         result = client.update_resume(tmp_path)
+        if result.status_code == 200:
+            log.info("Resume uploaded successfully")
+        else:
+            log.error("Resume upload failed (HTTP %s): %s", result.status_code, getattr(result, 'raw_response', result))
+            return False
+            
         log.info("Resume uploaded ✓  (profile_id=%s  status=%s)",
                  result.profile_id, result.status_code)
     except NaukriClientError as exc:
@@ -891,6 +965,13 @@ def upload_once() -> bool:
     if APPLY_JOBS:
         apply_to_jobs(client)
         process_recommended_jobs(client)
+
+    # ── track profile metrics & update daily log markdown ────────
+    try:
+        update_daily_markdown_and_csv(client, DAILY_LOG_DIR)
+        record_profile_metrics(client)
+    except Exception as exc:
+        log.warning("Daily profile metrics tracking failed (non-fatal): %s", exc)
 
     auto_mark_current_slot("full")
 
@@ -937,6 +1018,13 @@ def apply_only_run() -> bool:
 
     apply_to_jobs(client)
     process_recommended_jobs(client)
+
+    # ── track profile metrics & update daily log markdown ────────
+    try:
+        update_daily_markdown_and_csv(client, DAILY_LOG_DIR)
+        record_profile_metrics(client)
+    except Exception as exc:
+        log.warning("Daily profile metrics tracking failed (non-fatal): %s", exc)
 
     auto_mark_current_slot("apply")
 
@@ -1283,6 +1371,12 @@ if __name__ == "__main__":
         dest="catch_up",
         help="Catch-up check: run any missed scheduled runs for today",
     )
+    group.add_argument(
+        "--track",
+        action="store_true",
+        dest="track",
+        help="Track profile metrics (search appearances & recruiter actions) and print report",
+    )
     args = parser.parse_args()
 
     if args.now:
@@ -1300,5 +1394,16 @@ if __name__ == "__main__":
     elif args.catch_up:
         success = catch_up_run()
         sys.exit(0 if success else 1)
+    elif args.track:
+        client = NaukriLoginClient(NAUKRI_USERNAME, NAUKRI_PASSWORD)
+        client.login()
+        metrics = record_profile_metrics(client)
+        if metrics:
+            history = load_history()
+            today_str = metrics.get("date")
+            deltas = history.get("daily_snapshots", {}).get(today_str, {}).get("deltas", {})
+            print(format_terminal_dashboard(metrics, deltas))
+            sys.exit(0)
+        sys.exit(1)
     else:
         run_scheduler()

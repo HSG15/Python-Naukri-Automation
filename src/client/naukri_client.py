@@ -379,41 +379,10 @@ class NaukriLoginClient:
         return self.session.get(PROFILE_URL, headers=self._build_headers(auth=True))
 
     def get_form_key2(self):
-        if not self.naukri_session:
-            raise NaukriAuthError("Login first")
-
-        if "form_key" in self.cache:
-            return self.cache["form_key"]
-
-        res = self._fetch_profile_html_auth()
-        html = res.text
-        js_urls = extract_all_js_urls(html)
-
-        for js_url in js_urls:
-            if "mnj" not in js_url:
-                continue
-            if js_url.startswith("//"):
-                js_url = "https:" + js_url
-            try:
-                js_content = self._fetch_js(js_url).text
-                key = extract_form_key2(js_content)
-                if key:
-                    self.cache["form_key"] = key
-                    return key
-            except Exception:
-                continue
-
-        try:
-            fallback_url = "https://static.naukimg.com/s/5/105/j/mnj_v299.min.js"
-            js_content = self._fetch_js(fallback_url).text
-            key = extract_form_key2(js_content)
-            if key:
-                self.cache["form_key"] = key
-                return key
-        except Exception:
-            pass
-
-        raise NaukriParseError("formKey2 not found")
+        # Naukri now strictly validates the formKey against its component configurations on the backend.
+        # F51f8e7e54e205 is the specific component config ID for the Profile Resume Upload form.
+        # If an invalid/random formKey is sent, OCS silently drops the file upload.
+        return "F51f8e7e54e205"
 
     # ------------------------------------------------------------------
     # Profile ID
@@ -443,7 +412,7 @@ class NaukriLoginClient:
 
     @with_exponential_retry(label="validate_file")
     def _validate_file_request(self, filename, file_bytes, form_key, file_key):
-        return requests.post(
+        return self.session.post(
             FILE_VALIDATION_URL,
             headers=UPLOAD_HEADERS,
             files={"file": (filename, BytesIO(file_bytes), "application/pdf")},
@@ -461,7 +430,7 @@ class NaukriLoginClient:
             raise NaukriAuthError("Login first")
 
         form_key = self.get_form_key2()
-        file_key = "U" + self.generate_file_key(13)
+        file_key = "" # Let the server generate a valid fileKey
 
         if isinstance(file, str):
             filename = file.split("/")[-1]
@@ -494,14 +463,18 @@ class NaukriLoginClient:
 
     def update_resume(self, resume_file):
         pid = self.fetch_profile_id()
-        url = RESUME_UPDATE_URL_TEMPLATE.format(profile_id=pid)
+        url = f"https://www.naukri.com/cloudgateway-mynaukri/resman-aggregator-services/v0/users/self/profiles/{pid}/advResume"
         file_key, form_key = self.validate_file(resume_file)
+        
+        import os
+        filename = os.path.basename(resume_file)
 
         headers = self._build_headers(
             auth=True,
             extra={
                 "accept-encoding": "gzip, deflate, br, zstd",
                 "accept-language": "en-US,en;q=0.9",
+                "appid": "105",
                 "content-type": "application/json",
                 "origin": "https://www.naukri.com",
                 "referer": "https://www.naukri.com/mnjuser/profile",
@@ -510,9 +483,16 @@ class NaukriLoginClient:
             },
         )
 
-        payload = {"textCV": {"formKey": form_key, "fileKey": file_key}}
+        payload = {
+            "textCV": {
+                "formKey": form_key, 
+                "fileKey": file_key,
+                "textCvContent": None
+            }
+        }
         res = self._update_resume_request(url, headers, payload)
-        return ResumeUpdateResult(pid, res.json(), res.status_code)
+        
+        return ResumeUpdateResult(pid, res.json() if res.text.strip() else {}, res.status_code)
 
     # ------------------------------------------------------------------
     # Profile update

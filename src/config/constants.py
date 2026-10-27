@@ -36,4 +36,5 @@ FORM_KEY_PATTERNS = [
     re.compile(r'"formKey"\s*:\s*"([A-Za-z0-9]{8,})"'),
 ]
 
-APP_JS_PATTERN = re.compile(r'<script[^>]+src="([^"]*app_v\d+\.min\.js[^"]*)"')
+# Post-Sep-2026 Naukri update: formKey moved to app_v*.min.js (mnj_v* removed)
+APP_JS_PATTERN = re.compile(r'<script[^>]+src="([^"]*(?:app_v|mnj_v)\d+\.min\.js[^"]*)"')

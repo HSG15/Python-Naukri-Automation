@@ -38,7 +38,12 @@ applied_jobs_history.json
 headline_state.json
 recommended_seen_jobs.json
 run_history.json
+profile_tracker_history.json
 *.html
+*.lock
 
 # Build and deployment zips
 *.zip
+
+# Local Resume folder
+MY_RESUME/*.pdf

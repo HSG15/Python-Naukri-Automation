@@ -3,7 +3,7 @@
 ## How the Automation Works (In Simple Words)
 
 1. **Automatic Login**: The script logs into your Naukri.com account securely using the credentials stored in your local `.env` file.
-2. **Profile Refresh (Full Run Only)**: It downloads your resume, uploads it again to refresh Naukri's "last updated" timestamp, and updates your profile headline slightly (e.g., adding or removing a trailing space/pipe depending on the time of day). This keeps your profile fresh and highly visible to recruiters.
+2. **Profile Refresh (Full Run Only)**: It takes your resume directly from your local `MY_RESUME` folder (or downloads from Google Drive as a fallback), dynamically attaches a date stamp to refresh Naukri's "last updated" timestamp, and updates your profile headline slightly (e.g., adding or removing a trailing space/pipe depending on the time of day). This keeps your profile fresh and highly visible to recruiters.
 3. **Smart Job Application & Relevance Filtering**: It searches for jobs using a single consolidated list of Data Engineering target keywords defined in `.env` under `JOB_KEYWORDS`.
    - Before applying to any job (both via keyword search and early-access/recommended roles), the bot runs it through a **strict relevance filter** that checks the job title, tags, and description.
    - It automatically blacklists and skips irrelevant roles (e.g., Coding Teacher, Drone Embedded, Gen AI Video Creator, Spring Boot Developer, Frontend Developer, Internships).
