@@ -72,3 +72,20 @@ tail -f daily_upload_stdout.log
 # View standard error logs
 tail -f daily_upload_stderr.log
 ```
+
+---
+
+## Session Token & Bypassing Login reCAPTCHA
+
+Naukri requires a reCAPTCHA challenge during raw password-based API logins. The automation bypasses this permanently by caching your authenticated browser session (`nauk_at` cookie token) into `naukri_session.json`.
+
+If your session token expires in the future, refresh it in seconds:
+
+1. Open [Naukri.com](https://www.naukri.com) in your browser where you are logged in.
+2. Open DevTools (**Cmd + Option + I**) -> **Application** -> **Cookies** -> `https://www.naukri.com`.
+3. Copy the value of the **`nauk_at`** cookie.
+4. Run:
+   ```bash
+   venv/bin/python save_session.py "<pasted_token>" --upload
+   ```
+This immediately saves and validates the token, then triggers the profile refresh and resume upload. Subsequent scheduled runs will continue to reuse this token automatically.
