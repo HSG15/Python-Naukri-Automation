@@ -3,6 +3,7 @@ import random
 import time
 import functools
 import os
+import json
 from io import BytesIO
 from src.client.session import build_session
 from src.config.constants import *
@@ -175,7 +176,62 @@ class NaukriLoginClient:
                 time.sleep(15)
         return None
 
+    def _get_session_file_path(self):
+        return os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "naukri_session.json"
+        )
+
+    def _save_session(self, token: str):
+        try:
+            path = self._get_session_file_path()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"nauk_at": token, "saved_at": time.time()}, f, indent=2)
+            logger.info("Saved active session to %s", os.path.basename(path))
+        except Exception as e:
+            logger.debug("Failed saving session file: %s", e)
+
+    def _load_saved_session(self):
+        token = os.getenv("NAUKRI_AUTH_TOKEN")
+        path = self._get_session_file_path()
+        if not token and os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    token = data.get("nauk_at") or data.get("token")
+            except Exception as e:
+                logger.debug("Failed reading session file: %s", e)
+
+        if not token:
+            return None
+
+        logger.info("Found saved Naukri session token — validating session...")
+        try:
+            self.session.set_cookie("nauk_at", token, domain=".naukri.com")
+            self.session.set_cookie("nauk_at", token, domain="www.naukri.com")
+        except Exception:
+            pass
+        self.naukri_session = NaukriSession(token, self.session.cookies)
+        try:
+            pid = self.fetch_profile_id()
+            if pid:
+                logger.info("Saved session is valid! Logged in as profile_id=%s ✓ (skipping password login)", pid)
+                try:
+                    self.cache["form_key"] = self.get_form_key2()
+                except Exception:
+                    pass
+                return self.naukri_session
+        except Exception as exc:
+            logger.warning("Saved session token is expired or invalid (%s). Falling back to password login...", exc)
+            self.naukri_session = None
+            self.profile_id = None
+        return None
+
     def login(self):
+        saved = self._load_saved_session()
+        if saved:
+            return saved
+
         res = self._login_request()
 
         if not res.ok:
@@ -218,6 +274,7 @@ class NaukriLoginClient:
             raise NaukriAuthError("No token")
 
         self.naukri_session = NaukriSession(token, self.session.cookies)
+        self._save_session(token)
 
         try:
             self.cache["form_key"] = self.get_form_key2()
@@ -289,6 +346,7 @@ class NaukriLoginClient:
             raise NaukriAuthError("OTP verified but no auth token received")
 
         self.naukri_session = NaukriSession(token, self.session.cookies)
+        self._save_session(token)
 
         try:
             self.cache["form_key"] = self.get_form_key2()

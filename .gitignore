@@ -39,6 +39,7 @@ headline_state.json
 recommended_seen_jobs.json
 run_history.json
 profile_tracker_history.json
+naukri_session.json
 *.html
 *.lock
 
